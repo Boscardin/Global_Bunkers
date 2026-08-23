@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>World Bunker Map — Merged Edition (77 Sites)</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0f17; --panel:#111827; --card:#1a2233; --border:#1f2937; --text:#f1f5f9; --muted:#94a3b8;
+    --gov:#ef4444; --museum:#3b82f6; --priv:#10b981; --hist:#f59e0b; --accent:#e8c15a;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif; background:var(--bg); color:var(--text); overflow:hidden;}
+
+  header{
+    position:fixed; top:0; left:0; right:0; z-index:1000;
+    background:linear-gradient(180deg, rgba(11,15,23,0.98) 0%, rgba(11,15,23,0.85) 100%);
+    backdrop-filter:blur(16px);
+    padding:14px 24px; border-bottom:1px solid var(--border);
+    display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px;
+  }
+  header h1{font-size:17px; font-weight:700; letter-spacing:0.3px; display:flex; align-items:center; gap:8px;}
+  header p{margin:3px 0 0; font-size:12px; color:var(--muted); max-width:520px; line-height:1.5;}
+  #search-box{
+    background:rgba(26,34,51,0.9); border:1px solid rgba(148,163,184,0.15); border-radius:8px;
+    padding:8px 14px; color:var(--text); font-family:'Inter',sans-serif; font-size:13px;
+    width:260px; outline:none; transition:all 0.2s;
+  }
+  #search-box:focus{border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,0.12);}
+  #search-box::placeholder{color:#64748b;}
+
+  .legend{ display:flex; gap:14px; font-size:12px; color:var(--muted); flex-shrink:0;}
+  .legend span{ display:flex; align-items:center; gap:5px;}
+  .dot{ width:10px; height:10px; border-radius:50%; display:inline-block; box-shadow:0 0 6px currentColor;}
+
+  #map{ position:fixed; top:0; left:0; right:0; bottom:0; z-index:1;}
+
+  .leaflet-control-zoom a{
+    background:rgba(17,24,39,0.9) !important; color:var(--text) !important;
+    border-color:rgba(148,163,184,0.15) !important; border-radius:6px !important;
+  }
+  .leaflet-control-zoom a:hover{background:rgba(26,34,51,0.9) !important;}
+
+  .custom-popup .leaflet-popup-content-wrapper{
+    background:var(--card); color:var(--text); border:1px solid var(--border);
+    border-radius:14px; box-shadow:0 20px 60px rgba(0,0,0,0.6); padding:0; overflow:hidden;
+    min-width:280px; max-width:320px;
+  }
+  .custom-popup .leaflet-popup-content{margin:0; width:auto !important;}
+  .custom-popup .leaflet-popup-tip{background:var(--card); border:1px solid var(--border);}
+
+  .popup-image{width:100%; height:170px; object-fit:cover; display:block; background:#0f172a;}
+  .popup-image.no-image{
+    height:110px; display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color:#475569; font-size:13px;
+  }
+  .popup-body{padding:16px 18px 18px;}
+  .popup-tag{
+    display:inline-flex; align-items:center; gap:5px;
+    font-size:10px; font-weight:700; letter-spacing:0.5px; text-transform:uppercase;
+    padding:3px 9px; border-radius:20px; margin-bottom:8px;
+  }
+  .popup-tag.gov{background:rgba(239,68,68,0.12); color:#f87171;}
+  .popup-tag.museum{background:rgba(59,130,246,0.12); color:#60a5fa;}
+  .popup-tag.priv{background:rgba(16,185,129,0.12); color:#34d399;}
+  .popup-tag.hist{background:rgba(245,158,11,0.12); color:#fbbf24;}
+  .popup-title{font-size:15px; font-weight:700; color:#f8fafc; margin-bottom:4px; line-height:1.3;}
+  .popup-owner{font-size:12px; color:#94a3b8; margin-bottom:10px; line-height:1.4;}
+  .popup-address{font-size:12px; color:#94a3b8; line-height:1.5; display:flex; align-items:flex-start; gap:6px; margin-bottom:10px;}
+  .popup-address .pin{color:#ef4444; margin-top:1px; flex-shrink:0;}
+  .popup-desc{font-size:11.5px; color:#64748b; line-height:1.5; padding-top:10px; border-top:1px solid rgba(148,163,184,0.08);}
+  .popup-wiki{font-size:11px; margin-top:10px;}
+  .popup-wiki a{color:var(--accent); text-decoration:none;}
+  .popup-wiki a:hover{text-decoration:underline;}
+
+  #stats-bar{
+    position:fixed; bottom:18px; left:50%; transform:translateX(-50%); z-index:1000;
+    background:rgba(17,24,39,0.92); backdrop-filter:blur(12px);
+    border:1px solid rgba(148,163,184,0.12); border-radius:12px;
+    padding:10px 22px; display:flex; gap:28px; font-size:12px;
+    box-shadow:0 8px 32px rgba(0,0,0,0.35);
+  }
+  .stat-item{text-align:center;}
+  .stat-value{font-weight:700; font-size:1.1rem; color:#f8fafc;}
+  .stat-label{color:#64748b; font-size:10px; text-transform:uppercase; letter-spacing:0.8px; margin-top:2px;}
+
+  .disclaimer{
+    position:fixed; bottom:4px; left:50%; transform:translateX(-50%); z-index:1000;
+    font-size:10px; color:#475569; white-space:nowrap;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🛡️ World Bunker Map — Merged Edition</h1>
+    <p>77 documented government, military, private, and historical bunkers worldwide. Click any flag for details. Photos load from Wikipedia where available.</p>
+  </div>
+  <input type="text" id="search-box" placeholder="Search bunkers...">
+  <div class="legend">
+    <span><span class="dot" style="background:var(--gov); color:var(--gov)"></span>Gov / Military</span>
+    <span><span class="dot" style="background:var(--museum); color:var(--museum)"></span>Museum</span>
+    <span><span class="dot" style="background:var(--priv); color:var(--priv)"></span>Private</span>
+    <span><span class="dot" style="background:var(--hist); color:var(--hist)"></span>Historical</span>
+  </div>
+</header>
+
+<div id="map"></div>
+
+<div id="stats-bar">
+  <div class="stat-item"><div class="stat-value" id="total-count">0</div><div class="stat-label">Bunkers</div></div>
+  <div class="stat-item"><div class="stat-value" id="country-count">0</div><div class="stat-label">Countries</div></div>
+  <div class="stat-item"><div class="stat-value" id="type-count">0</div><div class="stat-label">Types</div></div>
+</div>
+
+<div class="disclaimer">Not an exhaustive registry. Some coordinates are approximate. Photos fetched live from Wikipedia.</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+const bunkers = [{"name": "Raven Rock Mountain Complex (Site R)", "lat": 39.73417, "lng": -77.41972, "owner": "U.S. Department of Defense", "address": "Near Blue Ridge Summit, Liberty Township, Adams County, Pennsylvania, USA (exact facility address restricted)", "desc": "", "type": "government", "image": "", "wiki": "Raven_Rock_Mountain_Complex"}, {"name": "Cheyenne Mountain Complex", "lat": 38.7443, "lng": -104.8459, "owner": "U.S. Space Force / NORAD", "address": "1 NORAD Rd, Colorado Springs, CO 80914, USA", "desc": "", "type": "government", "image": "", "wiki": "Cheyenne_Mountain_Complex"}, {"name": "Mount Weather Emergency Operations Center", "lat": 39.0625, "lng": -77.8778, "owner": "FEMA / Department of Homeland Security", "address": "Blue Ridge Mountains, near Bluemont, Loudoun County, Virginia, USA (exact facility address restricted)", "desc": "", "type": "government", "image": "", "wiki": "Mount_Weather_Emergency_Operations_Center"}, {"name": "The Greenbrier Bunker", "lat": 37.7857, "lng": -80.2994, "owner": "Built for U.S. Congress; site now part of The Greenbrier resort (decommissioned, open for public tours)", "address": "101 Main St W, White Sulphur Springs, WV 24986, USA", "desc": "", "type": "government", "image": "", "wiki": "The_Greenbrier#The_Bunker"}, {"name": "Mount Pony (National Audio-Visual Conservation Center)", "lat": 38.4696, "lng": -77.9853, "owner": "Library of Congress (formerly Federal Reserve emergency currency-storage bunker)", "address": "19053 Mount Pony Rd, Culpeper, VA 22701, USA", "desc": "", "type": "government", "image": "", "wiki": "National_Audio-Visual_Conservation_Center"}, {"name": "Sonnenberg Tunnel Civil Defense Bunker", "lat": 47.0432, "lng": 8.2841, "owner": "City / Canton of Lucerne (Swiss Federal civil-defense program)", "address": "Sonnenberg Tunnel, near Bruchmatt district, Lucerne, Switzerland", "desc": "", "type": "government", "image": "", "wiki": "Sonnenberg_Tunnel"}, {"name": "Burlington Bunker (Central Government War HQ)", "lat": 51.4155, "lng": -2.207, "owner": "UK Ministry of Defence", "address": "Spring Quarry / MOD Corsham, near Corsham, Wiltshire, UK (exact entrance restricted)", "desc": "", "type": "government", "image": "", "wiki": "Burlington_(bunker)"}, {"name": "Battle of Britain Bunker", "lat": 51.54125, "lng": -0.46528, "owner": "Hillingdon Council (heritage site); originally Air Ministry / RAF", "address": "RAF Uxbridge, Uxbridge, London Borough of Hillingdon, UK", "desc": "", "type": "government", "image": "", "wiki": "Battle_of_Britain_Bunker"}, {"name": "Tagansky Protected Command Point (Bunker-42)", "lat": 55.741735, "lng": 37.649277, "owner": "Formerly Soviet/Russian Ministry of Defence; now privately operated as a museum and event venue", "address": "5th Kotelnichesky Lane 11, Moscow, 115172, Russia", "desc": "", "type": "government", "image": "", "wiki": "Tagansky_Protected_Command_Point"}, {"name": "Bundesbank Bunker Cochem", "lat": 50.1481, "lng": 7.1735, "owner": "Formerly Deutsche Bundesbank (decommissioned); now a public museum", "address": "Am Kahlenberg, Cochem-Cond, Rhineland-Palatinate, Germany", "desc": "", "type": "government", "image": "", "wiki": "Bunker_der_Deutschen_Bundesbank"}, {"name": "La Coupole (Helfaut-Wizernes)", "lat": 50.7061, "lng": 2.0493, "owner": "Owned by the Pas-de-Calais department; operated as a WWII/space history museum", "address": "Rue Roger Cousin, 62570 Helfaut-Wizernes, France", "desc": "", "type": "government", "image": "", "wiki": "La_Coupole"}, {"name": "Peter Thiel Estate (Second Star Ltd.)", "lat": -44.61, "lng": 168.928, "owner": "Peter Thiel, via NZ-registered company Second Star Limited", "address": "Glendhu Bay, western shore of Lake Wanaka, Otago, New Zealand — 477-acre estate; a proposed bunker-style lodge complex was rejected by Queenstown Lakes District Council in 2022 and remains unbuilt as of public reporting", "desc": "", "type": "private", "image": "", "wiki": "Peter_Thiel"}, {"name": "Rising S Company — Otago/Southern Lakes installations", "lat": -45.03, "lng": 168.66, "owner": "Rising S Company (individual buyers undisclosed)", "address": "Reported roughly 10 private bunkers delivered across the Queenstown–Wanaka (Otago) region, New Zealand; the company has not disclosed specific properties or owners", "desc": "", "type": "private", "image": "", "wiki": "Bunker"}, {"name": "Underground bunker residence, Lake Tekapo", "lat": -44.0058, "lng": 170.4787, "owner": "Undisclosed private owner", "address": "Near Lake Tekapo, Mackenzie District, Canterbury, New Zealand (as reported by local media; exact address undisclosed)", "desc": "", "type": "private", "image": "", "wiki": "Lake_Tekapo"}, {"name": "Bunker compound, Western Bay of Plenty", "lat": -37.75, "lng": 176.2, "owner": "Undisclosed private owner", "address": "Western Bay of Plenty District, North Island, New Zealand (as reported by local media; exact address undisclosed)", "desc": "", "type": "private", "image": "", "wiki": "Western_Bay_of_Plenty_District"}, {"name": "Sasso San Gottardo (Sasso da Pigna Fortress)", "lat": 46.5589, "lng": 8.5675, "owner": "Swiss Confederation (former artillery fortress); now Fondazione Sasso San Gottardo museum", "address": "Gotthardpasshöhe, 6780 Airolo, Switzerland", "desc": "", "type": "government", "image": "", "wiki": "Gotthard_Pass"}, {"name": "Festung Fürigen", "lat": 46.9847, "lng": 8.3548, "owner": "Swiss Confederation (former artillery fortress); now a museum", "address": "Fürigen, 6362 Stansstad, near Lake Lucerne, Switzerland", "desc": "", "type": "government", "image": "", "wiki": "Réduit_national"}, {"name": "Fort de Chillon", "lat": 46.4136, "lng": 6.9269, "owner": "Swiss Confederation (former artillery fortress); now a museum next to Chillon Castle", "address": "Avenue de Chillon, 1820 Veytaux, Switzerland", "desc": "", "type": "government", "image": "", "wiki": "Chillon_Castle"}, {"name": "Toblerone Line — Villa Rose Bunker", "lat": 46.418, "lng": 6.268, "owner": "Swiss Confederation (former camouflaged artillery bunker); now a museum", "address": "Route Suisse, near Gland, Canton of Vaud, Switzerland", "desc": "", "type": "government", "image": "", "wiki": "Toblerone_line"}, {"name": "Pionen White Mountains (Bahnhof Data Center)", "lat": 59.3145, "lng": 18.0817, "owner": "Bahnhof AB (Swedish ISP)", "address": "Renstiernas gata 35–37, Södermalm, Stockholm, Sweden", "desc": "", "type": "private", "image": "", "wiki": "Pionen"}, {"name": "Muskö Naval Base (Musköbasen)", "lat": 58.943, "lng": 18.137, "owner": "Swedish Armed Forces (Swedish Navy)", "address": "Muskö island, Haninge Municipality, south of Stockholm, Sweden", "desc": "", "type": "government", "image": "", "wiki": "Musk%C3%B6_Naval_Base"}, {"name": "Green Mountain DC1-Stavanger", "lat": 59.13, "lng": 5.65, "owner": "Green Mountain AS (former NATO munitions depot)", "address": "Rennesøy, near Stavanger, Rogaland, Norway", "desc": "", "type": "private", "image": "", "wiki": "Rennes%C3%B8y"}, {"name": "Beijing Underground City (Dixia Cheng)", "lat": 39.8999, "lng": 116.4061, "owner": "Chinese state (originally civil-defense network; closed to the public since 2008)", "address": "Beneath central Beijing, China — one well-known entrance near Xidamochang Jie, Qianmen, Dongcheng District", "desc": "", "type": "government", "image": "", "wiki": "Underground_City_(Beijing)"}, {"name": "Pine Gap", "lat": -23.8, "lng": 133.7375, "owner": "Jointly operated by Australia (Australian Signals Directorate) and the United States (CIA, NSA, NRO)", "address": "Approximately 18 km southwest of Alice Springs, Northern Territory, Australia", "desc": "", "type": "government", "image": "", "wiki": "Pine_Gap"}, {"name": "Iron Mountain Boyers (National Underground Storage)", "lat": 41.0089, "lng": -79.9328, "owner": "Iron Mountain Incorporated (former limestone mine)", "address": "1180 Ridge Rd, Boyers, PA 16020, USA", "desc": "", "type": "private", "image": "", "wiki": "Iron_Mountain_(company)"}, {"name": "Mount Yamantau Complex", "lat": 54.255, "lng": 58.1037, "owner": "Russian government / Russian Armed Forces (purpose and scale unconfirmed by Russia; existence acknowledged, function disputed)", "address": "Mount Yamantau, Beloretsky District, Bashkortostan, Russia — near the closed town of Mezhgorye", "desc": "", "type": "government", "image": "", "wiki": "Mount_Yamantau"}, {"name": "Vivos xPoint", "lat": 43.2936, "lng": -103.8305, "owner": "Vivos Group (individual bunker owners not publicly disclosed)", "address": "Former Fort Igloo / Black Hills Army Depot, near Edgemont, SD 57735, USA", "desc": "", "type": "private", "image": "", "wiki": "Vivos_(underground_shelter)"}, {"name": "Vivos Europa One", "lat": 50.6817, "lng": 11.6631, "owner": "Vivos Group (individual apartment owners not publicly disclosed)", "address": "Rothenstein, Thuringia, Germany (converted Cold War munitions facility; precise entrance undisclosed)", "desc": "", "type": "private", "image": "", "wiki": "Vivos_(underground_shelter)"}, {"name": "The Oppidum", "lat": 49.9639, "lng": 14.5044, "owner": "Oppidum s.r.o. — acquired and developed by Jakub Zamrazil", "address": "Undisclosed location in the countryside near Prague, Czech Republic", "desc": "", "type": "private", "image": "", "wiki": "Bunker"}, {"name": "Survival Condo Project", "lat": 39.5758, "lng": -97.5978, "owner": "Larry Hall / Survival Condo LLC", "address": "Former Atlas-F missile silo, near Concordia, Kansas, USA", "desc": "", "type": "private", "image": "", "wiki": "Survival_Condo_Project"}, {"name": "Trident Lakes", "lat": 33.5814, "lng": -96.2811, "owner": "Trident Lakes Development", "address": "Near Ector, Fannin County, Texas, USA", "desc": "", "type": "private", "image": "", "wiki": "Bunker"}, {"name": "Presidential Emergency Operations Center (PEOC)", "lat": 38.8977, "lng": -77.0365, "owner": "U.S. Government / White House", "address": "White House, 1600 Pennsylvania Avenue NW, Washington, DC 20500, United States", "desc": "Located underneath the East Wing of the White House, the PEOC serves as a secure shelter and communications center for the President of the United States during emergencies.", "type": "government", "image": "", "wiki": ""}, {"name": "Svalbard Global Seed Vault", "lat": 78.2386, "lng": 15.5014, "owner": "Norwegian Government / Global Crop Diversity Trust", "address": "Platåberget, Longyearbyen, Svalbard, Norway", "desc": "A secure seed bank on the Norwegian island of Spitsbergen. Designed to survive global catastrophes, it preserves a wide variety of plant seeds from around the world.", "type": "government", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/Svalbard_Global_Seed_Vault_facade.jpg/640px-Svalbard_Global_Seed_Vault_facade.jpg", "wiki": ""}, {"name": "Führerbunker", "lat": 52.5125, "lng": 13.3803, "owner": "Nazi Germany (Historical Site, Destroyed)", "address": "Gertrud-Kolmar-Straße 14, 10117 Berlin, Germany", "desc": "Adolf Hitler's last headquarters and the site of his death in 1945. The bunker was largely destroyed and the site is now a parking lot with an informational plaque.", "type": "historical", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Fuehrerbunker_site_Berlin.jpg/640px-Fuehrerbunker_site_Berlin.jpg", "wiki": ""}, {"name": "Ouvrage Schoenenbourg (Maginot Line)", "lat": 48.9667, "lng": 7.9167, "owner": "French Government (Museum)", "address": "Schoenenbourg, Bas-Rhin, Grand Est, France", "desc": "One of the largest fortifications on the Maginot Line. A massive underground complex with artillery, barracks, and kitchens, now open for public tours.", "type": "museum", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Ouvrage_Schoenenbourg.jpg/640px-Ouvrage_Schoenenbourg.jpg", "wiki": ""}, {"name": "Boden Fortress", "lat": 65.825, "lng": 21.7167, "owner": "Swedish Armed Forces (Museum)", "address": "Boden, Norrbotten County, Sweden", "desc": "A massive fortress complex built to defend Sweden against invasion from the east. One of Sweden's largest military structures, with underground tunnels and artillery positions.", "type": "museum", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/Boden_Fortress.jpg/640px-Boden_Fortress.jpg", "wiki": ""}, {"name": "Albanian Bunkers (Various)", "lat": 41.3275, "lng": 19.8187, "owner": "Formerly Albanian Government (Enver Hoxha)", "address": "Throughout Albania (Tirana shown as reference)", "desc": "Over 173,000 concrete bunkers were built across Albania during Enver Hoxha's rule. These small dome-shaped pillboxes are found everywhere from beaches to mountains.", "type": "historical", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/Albanian_bunker.jpg/640px-Albanian_bunker.jpg", "wiki": ""}, {"name": "Object 17/5001 (Prenden Bunker)", "lat": 52.6833, "lng": 13.5333, "owner": "Formerly East German Government", "address": "Prenden, Wandlitz, Brandenburg, Germany", "desc": "The former National Defense Council bunker of East Germany (GDR). A massive underground complex designed to protect the East German leadership during nuclear war.", "type": "historical", "image": "", "wiki": ""}, {"name": "Swiss National Redoubt Bunkers", "lat": 46.8182, "lng": 8.2275, "owner": "Swiss Armed Forces / Swiss Government", "address": "Various locations across Switzerland (Gotthard Pass region shown)", "desc": "A defensive strategy and network of bunkers built into the Swiss Alps. Switzerland has over 300,000 shelters due to a law requiring protective shelters for all new buildings since 1963.", "type": "government", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Swiss_bunker_Gotthard.jpg/640px-Swiss_bunker_Gotthard.jpg", "wiki": ""}, {"name": "Kelvedon Hatch Secret Nuclear Bunker", "lat": 51.6714, "lng": 0.2561, "owner": "UK Government (now Private Museum)", "address": "Kelvedon Hall Ln, Brentwood CM14 5TL, United Kingdom", "desc": "A former Regional Government Headquarters (RGHQ) bunker built to protect local officials during nuclear war. Now a museum with original equipment and Cold War exhibits.", "type": "museum", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Kelvedon_Hatch_bunker.jpg/640px-Kelvedon_Hatch_bunker.jpg", "wiki": ""}, {"name": "Barnton Quarry Nuclear Bunker", "lat": 55.9667, "lng": -3.3, "owner": "Formerly UK Government (now Restored Museum)", "address": "Barnton Quarry, Edinburgh, Scotland, United Kingdom", "desc": "A former Regional Seat of Government for Scotland during the Cold War. Recently restored to its original condition and now open for tours.", "type": "museum", "image": "", "wiki": ""}, {"name": "Woomera Test Range Bunkers", "lat": -31.1994, "lng": 136.8256, "owner": "Australian Government / Royal Australian Air Force", "address": "Woomera, South Australia, Australia", "desc": "A restricted military area used for weapons testing. Contains various bunkers and test facilities used during nuclear and missile testing programs.", "type": "government", "image": "", "wiki": ""}, {"name": "Yucca Mountain Nuclear Waste Repository", "lat": 36.2167, "lng": -116.4167, "owner": "U.S. Department of Energy", "address": "Nye County, Nevada, United States", "desc": "A deep geological repository for spent nuclear fuel and high-level radioactive waste. Tunnels are bored 1,000 feet below the surface and 1,000 feet above the water table.", "type": "government", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Yucca_Mountain_tunnel.jpg/640px-Yucca_Mountain_tunnel.jpg", "wiki": ""}, {"name": "Onkalo Spent Nuclear Fuel Repository", "lat": 61.2361, "lng": 21.4783, "owner": "Posiva Oy (Finnish Nuclear Waste Company)", "address": "Eurajoki, Finland", "desc": "The world's first deep geological repository for high-level nuclear waste. Reaches a depth of 1,443 feet and is designed to safely store waste for 100,000 years.", "type": "private", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Onkalo_entrance.jpg/640px-Onkalo_entrance.jpg", "wiki": ""}, {"name": "Quebec 01 Missile Alert Facility", "lat": 41.1333, "lng": -104.8167, "owner": "U.S. Air Force (now State Historic Site)", "address": "Cheyenne, Wyoming, United States", "desc": "The only retired U.S. nuclear missile silo open to the public. It was part of the Minuteman missile system during the Cold War.", "type": "museum", "image": "", "wiki": ""}, {"name": "Titan Missile Museum", "lat": 31.9033, "lng": -110.9992, "owner": "Arizona Aerospace Foundation (Museum)", "address": "1580 W Duval Mine Rd, Sahuarita, AZ 85629, United States", "desc": "A former ICBM missile site with an intact Titan II missile in its silo. The only remaining Titan II site of the 54 that were operational during the Cold War.", "type": "museum", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Titan_Missile_Museum_silo.jpg/640px-Titan_Missile_Museum_silo.jpg", "wiki": ""}, {"name": "Fort Eben-Emael", "lat": 50.7967, "lng": 5.6786, "owner": "Belgian Government (Museum)", "address": "Fort Eben-Emael, 4690 Eben-Emael, Belgium", "desc": "One of the world's largest forts, built to defend Belgium against German invasion. Famous for being captured by German glider troops in 1940.", "type": "museum", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Fort_Eben-Emael.jpg/640px-Fort_Eben-Emael.jpg", "wiki": ""}, {"name": "Jersey War Tunnels (Höhlgangsanlage 8)", "lat": 49.2167, "lng": -2.1833, "owner": "Jersey Heritage (Museum)", "address": "Les Charrières Malorey, St. Lawrence, Jersey JE3 1FU", "desc": "An underground complex built by slave labor during the Nazi occupation of Jersey. Originally an artillery storage facility, now a museum about the occupation.", "type": "museum", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Jersey_War_Tunnels.jpg/640px-Jersey_War_Tunnels.jpg", "wiki": ""}, {"name": "Churchill War Rooms", "lat": 51.5022, "lng": -0.1294, "owner": "Imperial War Museums", "address": "King Charles St, London SW1A 2AQ, United Kingdom", "desc": "The underground headquarters of the British government during WWII. Churchill and his cabinet directed the war from these rooms beneath Whitehall.", "type": "museum", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Churchill_War_Rooms.jpg/640px-Churchill_War_Rooms.jpg", "wiki": ""}, {"name": "Regan Vest (Danish Cold War Bunker)", "lat": 56.3667, "lng": 8.6167, "owner": "Danish Government (Museum)", "address": "Near Skive, Central Denmark Region, Denmark", "desc": "A secret nuclear bunker built for the Danish government and royal family during the Cold War. Recently opened to the public as a museum.", "type": "museum", "image": "", "wiki": ""}, {"name": "Kőbánya Cellar System", "lat": 47.4833, "lng": 19.1333, "owner": "City of Budapest / Various", "address": "Kőbánya, Budapest, Hungary", "desc": "A vast network of underground cellars and tunnels originally built for beer storage. During WWII and the Cold War, sections were used as air-raid shelters and bunkers.", "type": "historical", "image": "", "wiki": ""}, {"name": "Moscow Metro (Deep Stations)", "lat": 55.7558, "lng": 37.6173, "owner": "Moscow Government / Metro", "address": "Various deep stations, Moscow, Russia", "desc": "Many stations of the Moscow Metro were built at extreme depths to serve as nuclear shelters. Stations like Park Pobedy (276 ft deep) are among the deepest in the world.", "type": "government", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Park_Pobedy_Moscow_Metro.jpg/640px-Park_Pobedy_Moscow_Metro.jpg", "wiki": ""}, {"name": "Kyiv Metro (Deep Stations)", "lat": 50.4501, "lng": 30.5234, "owner": "Kyiv City Administration / Metro", "address": "Various deep stations, Kyiv, Ukraine", "desc": "The Kyiv Metro was designed with deep stations to serve as nuclear shelters. Arsenalna station at 346 feet is the deepest metro station in the world.", "type": "government", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/Arsenalna_station_Kyiv.jpg/640px-Arsenalna_station_Kyiv.jpg", "wiki": ""}, {"name": "Hill 60 Bunker", "lat": -34.4833, "lng": 150.9, "owner": "Australian Government (Heritage Site)", "address": "Port Kembla, New South Wales, Australia", "desc": "A WWII coastal defence bunker built to protect the industrial city of Wollongong. Part of a network of fortifications along the Australian coast.", "type": "historical", "image": "", "wiki": ""}, {"name": "Marnate's Bunker", "lat": 45.6333, "lng": 8.9167, "owner": "Formerly Italian Fascist Government (Museum)", "address": "Marnate, Lombardy, Italy", "desc": "An industrial bunker built during WWII to protect aircraft production facilities. One of the few remaining examples of Italian industrial bunkers.", "type": "museum", "image": "", "wiki": ""}, {"name": "Alpine Wall Bunkers", "lat": 46.3667, "lng": 11.0333, "owner": "Italian Government (various museums)", "address": "Various locations, Northern Italy (Dolomites region shown)", "desc": "A system of fortifications built by Fascist Italy along its northern border. Many bunkers and artillery positions are still visible in the Dolomites.", "type": "historical", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Alpine_Wall_bunker.jpg/640px-Alpine_Wall_bunker.jpg", "wiki": ""}, {"name": "Kelly Butte Civil Defense Center", "lat": 45.5167, "lng": -122.55, "owner": "City of Portland (Decommissioned)", "address": "Kelly Butte, Portland, Oregon, United States", "desc": "A Cold War-era civil defense bunker built into a volcanic cinder cone in Portland. It was designed to serve as an emergency operations center.", "type": "historical", "image": "", "wiki": ""}, {"name": "Post-Attack Command and Control System (Hadley)", "lat": 42.3417, "lng": -72.5833, "owner": "U.S. Air Force (Decommissioned)", "address": "Hadley, Massachusetts, United States", "desc": "A former nuclear bunker designed to maintain command and control communications after a nuclear attack. Part of the Post-Attack Command and Control System.", "type": "historical", "image": "", "wiki": ""}, {"name": "Warrenton Training Center", "lat": 38.7167, "lng": -77.8, "owner": "U.S. Government (CIA / NSA)", "address": "Warrenton, Virginia, United States", "desc": "A covert communications facility operated by U.S. intelligence agencies. Contains underground bunkers and is part of the continuity of government program.", "type": "government", "image": "", "wiki": ""}, {"name": "Selfridge AFB Radar Station", "lat": 42.6167, "lng": -82.8333, "owner": "U.S. Air Force (Decommissioned)", "address": "Selfridge Air National Guard Base, Michigan, United States", "desc": "A former radar station and bunker facility at Selfridge Air Force Base, part of the SAGE (Semi-Automatic Ground Environment) air defense network.", "type": "historical", "image": "", "wiki": ""}, {"name": "North River Depot (Loring AFB)", "lat": 46.8833, "lng": -67.8667, "owner": "U.S. Air Force (Decommissioned)", "address": "Limestone, Maine, United States", "desc": "A former nuclear weapons storage site near Loring Air Force Base. The 'igloos' stored enough nuclear warheads to destroy the earth several times over.", "type": "historical", "image": "", "wiki": ""}, {"name": "Derrick Cave", "lat": 43.3667, "lng": -121.0667, "owner": "U.S. Government (BLM Land)", "address": "Fort Rock, Oregon, United States", "desc": "A lava tube cave that was designated as a fallout shelter during the Cold War. It is one of the largest caves in the Fort Rock area.", "type": "historical", "image": "", "wiki": ""}, {"name": "Bunkers of Cape Henlopen", "lat": 38.7833, "lng": -75.0833, "owner": "Delaware State Parks (Museum)", "address": "Cape Henlopen State Park, Lewes, Delaware, United States", "desc": "WWII-era coastal defense bunkers hidden under the beaches of Cape Henlopen State Park. They were part of Fort Miles, which protected Delaware Bay.", "type": "museum", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Cape_Henlopen_bunker.jpg/640px-Cape_Henlopen_bunker.jpg", "wiki": ""}, {"name": "Battery Cooper Bunker", "lat": 21.4167, "lng": -157.8, "owner": "U.S. Military (Heritage Site)", "address": "Marine Corps Base Hawaii, Kaneohe, Hawaii, United States", "desc": "A WWII-era bunker now packed with posters and props from movies and TV shows filmed nearby. Located on Marine Corps Base Hawaii.", "type": "museum", "image": "", "wiki": ""}, {"name": "The Grove Park Inn", "lat": 35.6167, "lng": -82.5333, "owner": "Private Resort (Former Supreme Court Relocation Site)", "address": "290 Macon Ave, Asheville, NC 28804, United States", "desc": "This luxury resort was designated as the secret relocation facility for the U.S. Supreme Court during the Cold War in case of nuclear attack.", "type": "historical", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Grove_Park_Inn.jpg/640px-Grove_Park_Inn.jpg", "wiki": ""}, {"name": "Civil Defense Control Center (New Orleans)", "lat": 29.95, "lng": -90.0667, "owner": "City of New Orleans (Abandoned)", "address": "New Orleans, Louisiana, United States", "desc": "An abandoned underground civil defense control center located not far from downtown New Orleans. Built during the Cold War for emergency operations.", "type": "historical", "image": "", "wiki": ""}, {"name": "Joliet Army Ammunition Plant", "lat": 41.5167, "lng": -88.1, "owner": "U.S. Army (National Park)", "address": "Wilmington, Illinois, United States", "desc": "A former ammunition plant with numerous bunkers for storing explosives. Now part of the Midewin National Tallgrass Prairie.", "type": "historical", "image": "", "wiki": ""}, {"name": "Possum Park Munitions Bunkers", "lat": -20.6667, "lng": 139.5, "owner": "Australian Government (Heritage Site)", "address": "Possum Park, Queensland, Australia", "desc": "WWII-era munitions bunkers built into the Australian outback. Part of a larger network of ammunition storage facilities.", "type": "historical", "image": "", "wiki": ""}, {"name": "Gravel Gertie (Pantex Plant)", "lat": 35.3333, "lng": -101.5667, "owner": "U.S. Department of Energy / B&W Pantex", "address": "Amarillo, Texas, United States", "desc": "Specialized bunkers at the Pantex nuclear weapons plant designed to contain nuclear explosions during assembly or disassembly of weapons.", "type": "government", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Gravel_Gertie_Pantex.jpg/640px-Gravel_Gertie_Pantex.jpg", "wiki": ""}, {"name": "Offutt AFB Nuclear Bunkers", "lat": 41.1167, "lng": -95.9167, "owner": "U.S. Strategic Command", "address": "Offutt Air Force Base, Nebraska, United States", "desc": "Underground facilities at Offutt AFB housing U.S. Strategic Command (USSTRATCOM). Responsible for strategic deterrence and global strike operations.", "type": "government", "image": "", "wiki": ""}, {"name": "Olney Support Center", "lat": 39.15, "lng": -77.0667, "owner": "U.S. Government (Decommissioned)", "address": "Olney, Maryland, United States", "desc": "A former support center with underground facilities, part of the U.S. continuity of government infrastructure during the Cold War.", "type": "historical", "image": "", "wiki": ""}, {"name": "Super Combat Center", "lat": 40.0, "lng": -75.0, "owner": "U.S. Air Force (Decommissioned)", "address": "Various locations, Northeastern United States", "desc": "Part of the SAGE air defense network, these centers were hardened underground facilities designed to coordinate air defense during a nuclear war.", "type": "historical", "image": "", "wiki": ""}, {"name": "Soviet Embassy 'Summer Camp' (Spy Bunker)", "lat": 39.1167, "lng": -77.8333, "owner": "Formerly Soviet Union (Abandoned)", "address": "Bluemont, Virginia, United States", "desc": "A facility near a U.S. nuclear bunker that served as a Soviet spy station. Conveniently located within surveillance range of American nuclear facilities.", "type": "historical", "image": "", "wiki": ""}, {"name": "Project 131", "lat": 29.65, "lng": 114.0667, "owner": "Formerly Chinese Military (now Tourist Site)", "address": "Gaoqiao Town, Xianning, Hubei Province, China", "desc": "A secret military command center built in the 1960s and 1970s for China's top leadership during nuclear war. Now a tourist attraction with tunnels, rooms, and historical exhibits.", "type": "museum", "image": "", "wiki": ""}, {"name": "Hospital in the Rock", "lat": 47.4964, "lng": 19.0344, "owner": "Museum (formerly Hungarian Military)", "address": "Lovas út 4/c, Budapest 1012, Hungary", "desc": "An underground hospital and nuclear bunker beneath Buda Castle. Used during WWII and the 1956 Uprising, it is now a museum with wax figures and original medical equipment.", "type": "museum", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Hospital_in_the_Rock_Budapest.jpg/640px-Hospital_in_the_Rock_Budapest.jpg", "wiki": ""}, {"name": "La Coupole (V-2 Bunker)", "lat": 50.7436, "lng": 1.6358, "owner": "French Government (Museum)", "address": "Rue André Clabaux, 62500 Helfaut, France", "desc": "A massive Nazi bunker built to launch V-2 rockets at London. Now a museum dedicated to the history of the V-weapons and the Nazi occupation of France.", "type": "museum", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/La_Coupole_Helfaut.jpg/640px-La_Coupole_Helfaut.jpg", "wiki": ""}, {"name": "Blockhaus d'Éperlecques", "lat": 50.8083, "lng": 2.1889, "owner": "French Government (Museum)", "address": "Rue de l'Église, 62910 Éperlecques, France", "desc": "A massive concrete bunker built by Nazi Germany to launch V-2 rockets. Known as the 'Bunker of the North,' it is now a museum and memorial.", "type": "museum", "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Blockhaus_Eperlecques.jpg/640px-Blockhaus_Eperlecques.jpg", "wiki": ""}];
+
+const typeColors = { government: '#ef4444', museum: '#3b82f6', private: '#10b981', historical: '#f59e0b' };
+const typeFlags = { government: '🛡️', museum: '🏛️', private: '💰', historical: '🏚️' };
+const typeLabels = { government: 'Government / Military', museum: 'Museum / Tourist', private: 'Private / Commercial', historical: 'Historical / Defunct' };
+
+const map = L.map('map', { zoomControl: false, minZoom: 2, maxBounds: [[-90,-180],[90,180]], worldCopyJump: true }).setView([25,10], 2.3);
+L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+  subdomains: 'abcd', maxZoom: 19
+}).addTo(map);
+
+function createIcon(type){
+  const c = typeColors[type] || '#94a3b8';
+  return L.divIcon({
+    className: 'custom-marker',
+    html: `<div style="width:32px;height:32px;background:${c};border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.15);border:2px solid rgba(255,255,255,0.1);"><span style="transform:rotate(45deg);font-size:14px;">${typeFlags[type] || '📍'}</span></div>`,
+    iconSize: [32,32], iconAnchor: [16,32], popupAnchor: [0,-32]
+  });
+}
+
+const markers = [];
+const layer = L.layerGroup().addTo(map);
+
+function makePopup(b){
+  const imgId = 'img-' + Math.random().toString(36).slice(2);
+  const imgHtml = b.image
+    ? `<img src="${b.image}" class="popup-image" alt="${b.name}" onerror="this.parentElement.innerHTML='<div class=\'popup-image no-image\'>📷 No image available</div>'">`
+    : `<div class="popup-image no-image" id="${imgId}"><div class="imgstatus">📷 Loading photo…</div></div>`;
+
+  const wikiLink = b.wiki ? `<div class="popup-wiki"><a href="https://en.wikipedia.org/wiki/${encodeURIComponent(b.wiki)}" target="_blank" rel="noopener">More on Wikipedia →</a></div>` : '';
+
+  return `
+    ${imgHtml}
+    <div class="popup-body">
+      <div class="popup-tag ${b.type}">${typeFlags[b.type]} ${typeLabels[b.type]}</div>
+      <div class="popup-title">${b.name}</div>
+      <div class="popup-owner">${b.owner}</div>
+      <div class="popup-address"><span class="pin">📍</span><span>${b.address}</span></div>
+      ${b.desc ? `<div class="popup-desc">${b.desc}</div>` : ''}
+      ${wikiLink}
+    </div>`;
+}
+
+bunkers.forEach(b => {
+  const m = L.marker([b.lat, b.lng], { icon: createIcon(b.type) });
+  m.bindPopup(makePopup(b), { className: 'custom-popup', maxWidth: 320, minWidth: 280 });
+  m.bunkerData = b;
+  markers.push(m);
+  layer.addLayer(m);
+
+  // If no direct image but has wiki, try to fetch on popup open
+  if (!b.image && b.wiki) {
+    m.on('popupopen', async () => {
+      const container = document.querySelector('.popup-image.no-image .imgstatus');
+      if (!container || container.dataset.loaded) return;
+      container.dataset.loaded = "1";
+      try {
+        const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(b.wiki)}`);
+        if (!res.ok) throw new Error('no summary');
+        const data = await res.json();
+        const src = (data.originalimage && data.originalimage.source) || (data.thumbnail && data.thumbnail.source);
+        if (src) {
+          const parent = container.closest('.popup-image');
+          parent.outerHTML = `<img src="${src}" class="popup-image" alt="${b.name}" onerror="this.parentElement.innerHTML='<div class=\'popup-image no-image\'>📷 No image available</div>'">`;
+        } else {
+          container.textContent = '📷 No image available';
+        }
+      } catch (e) {
+        container.textContent = '📷 No image available';
+      }
+    });
+  }
+});
+
+// Stats
+const countries = new Set(bunkers.map(b => {
+  const parts = b.address.split(',');
+  return parts[parts.length - 1].trim().replace(/\(.*\)/, '').trim();
+}));
+document.getElementById('total-count').textContent = bunkers.length;
+document.getElementById('country-count').textContent = countries.size;
+document.getElementById('type-count').textContent = Object.keys(typeColors).length;
+
+// Search
+const searchBox = document.getElementById('search-box');
+searchBox.addEventListener('input', (e) => {
+  const q = e.target.value.toLowerCase();
+  layer.clearLayers();
+  markers.forEach(m => {
+    const b = m.bunkerData;
+    if (b.name.toLowerCase().includes(q) || b.owner.toLowerCase().includes(q) || b.address.toLowerCase().includes(q) || (b.desc && b.desc.toLowerCase().includes(q))) {
+      layer.addLayer(m);
+    }
+  });
+});
+
+// Fit bounds
+if (markers.length > 0) {
+  const group = new L.featureGroup(markers);
+  map.fitBounds(group.getBounds().pad(0.1));
+}
+</script>
+</body>
+</html>
